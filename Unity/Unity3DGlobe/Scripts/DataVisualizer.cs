@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using F;
+
 
 public class DataVisualizer : MonoBehaviour
 {
@@ -9,110 +11,149 @@ public class DataVisualizer : MonoBehaviour
     public GameObject Earth;
     public GameObject PointPrefab;
     public float ValueScaleMultiplier = 1;
-    GameObject[] seriesObjects;
-    List<GameObject> points;
+    GameObject seriesFac,seriesArc;
+    List<GameObject> points = new List<GameObject>();
     int currentSeries = 0;
-
     public ArcDrawer Drawer;
 
-    public void CreateMeshes(SeriesData[] allSeries)
+    Dictionary<string, List<Facility>> locations = new Dictionary<string, List<Facility>>();
+    Dictionary<Vector3, List<Facility>> buildings = new Dictionary<Vector3, List<Facility>>();
+
+    public void CreateMeshes(SeriesLocData[] allSeries)
     {
-        seriesObjects = new GameObject[allSeries.Length];
-        GameObject p = Instantiate<GameObject>(PointPrefab);
-        Vector3[] verts = p.GetComponent<MeshFilter>().mesh.vertices;
-        int[] indices = p.GetComponent<MeshFilter>().mesh.triangles;
-
-        points = new List<GameObject>();
-        List<Vector3> meshVertices = new List<Vector3>(65000);
-        List<int> meshIndices = new List<int>(117000);
-        List<Color> meshColors = new List<Color>(65000);
-
-        for (int i = 0; i < allSeries.Length; i++)
+        //seriesFac = new GameObject();
+        //GameObject seriesObj = new GameObject(allSeries[0].Name);
+        //seriesObj.transform.parent = Earth.transform;
+        //seriesFac = seriesObj;
+        SeriesLocData seriesData = allSeries[0];
+        //Debug.Log(seriesData.Data.Length);
+        for (int j = 0; j < seriesData.Data.Length; j += 9)
         {
-            GameObject seriesObj = new GameObject(allSeries[i].Name);
-            seriesObj.transform.parent = Earth.transform;
-            seriesObjects[i] = seriesObj;
-            SeriesData seriesData = allSeries[i];
-            for (int j = 0; j < seriesData.Data.Length; j += 3)
+            string SLIC = seriesData.Data[j].ToString();
+            float latitude = float.Parse(seriesData.Data[j + 1]);
+            float longitude = float.Parse(seriesData.Data[j + 2]);
+            string CC = seriesData.Data[j + 3].ToString();
+            string SORT = seriesData.Data[j + 4].ToString();
+            string CAP = seriesData.Data[j + 5].ToString();
+            string SPAN = seriesData.Data[j + 6].ToString();
+            string STRT = seriesData.Data[j + 7].ToString();
+            string STATE = seriesData.Data[j + 8].ToString();
+            Facility fac = getFacility(SLIC,latitude,longitude,CC,SORT,CAP,SPAN,STRT,STATE);
+
+            if (!locations.ContainsKey(fac.SLIC))
             {
-                float lat = seriesData.Data[j];
-                float lng = seriesData.Data[j + 1];
-                float value = seriesData.Data[j + 2];
-                AppendPointVertices(p, verts, indices, lng, lat, value, meshVertices, meshIndices, meshColors);
-                if (meshVertices.Count + verts.Length > 65000)
+                List<Facility> loc = new List<Facility>();
+                loc.Add(fac);
+                locations.Add(fac.SLIC, loc);
+            }
+            else
+            {
+                locations[fac.SLIC].Add(fac);
+            }
+
+            //draw facility only once
+            if (!buildings.ContainsKey(fac.pos))
+            {
+                //Debug.Log(fac.pos);
+                List<Facility> building = new List<Facility>();
+                building.Add(fac);
+                buildings.Add(fac.pos, building);
+                GameObject p = Instantiate<GameObject>(PointPrefab, transform.localPosition, transform.localRotation);
+                p.transform.parent = Earth.transform;
+                p.transform.localScale = new Vector3(1, 1, 0.001f);
+                p.transform.localPosition = fac.pos;
+                p.GetComponent<MeshRenderer>().material = PointMaterial;
+                p.AddComponent<BoxCollider>();
+                p.AddComponent<FacInfo>().SetFac(fac);
+                //p.AddComponent<HelloWorld>();
+                p.tag = "Location";
+                points.Add(p);
+            }
+                else
                 {
-                    CreateObject(meshVertices, meshIndices, meshColors, seriesObj);
-                    meshVertices.Clear();
-                    meshIndices.Clear();
-                    meshColors.Clear();
+                buildings[fac.pos].Add(fac);
                 }
             }
-            Debug.Log("Creating object");
-            CreateObject(meshVertices, meshIndices, meshColors, seriesObj);
-            meshVertices.Clear();
-            meshIndices.Clear();
-            meshColors.Clear();
-            seriesObjects[i].SetActive(false);
-            //Drawer.DrawArcs(seriesObjects[i]);
-        }
+    }
 
-        seriesObjects[currentSeries].SetActive(true);
+    public void createArcs(SeriesData[] allSeries)
+    {
+        //seriesArc = new GameObject();
+        //GameObject seriesObj = new GameObject(allSeries[0].Name);
+        //seriesObj.transform.parent = Earth.transform;
+        //seriesArc = seriesObj;
+        SeriesData seriesData = allSeries[0];
+        //Debug.Log(seriesData.Data.Length);
+        for (int j = 1460*7; j < seriesData.Data.Length/2; j += 7)
+        {
+            //Debug.Log(seriesData.Data[j]);
+            string OSLIC = seriesData.Data[j].ToString();
+            float latstart = seriesData.Data[j + 1];
+            float lngstart = seriesData.Data[j + 2];
+            string DSLIC = seriesData.Data[j + 3].ToString();
+            float latend = seriesData.Data[j + 4];
+            float lngend = seriesData.Data[j + 5];
+            float volume = seriesData.Data[j + 6];
+
+            Vector3 startpos, endpos;
+            startpos.x = 0.5f * Mathf.Cos(lngstart * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
+            startpos.y = 0.5f * Mathf.Sin(latstart * Mathf.Deg2Rad);
+            startpos.z = 0.5f * Mathf.Sin(lngstart * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
+            endpos.x = 0.5f * Mathf.Cos(lngend * Mathf.Deg2Rad) * Mathf.Cos(latend * Mathf.Deg2Rad);
+            endpos.y = 0.5f * Mathf.Sin(latend * Mathf.Deg2Rad);
+            endpos.z = 0.5f * Mathf.Sin(lngend * Mathf.Deg2Rad) * Mathf.Cos(latend * Mathf.Deg2Rad);
+            string ostate = "WA", dstate = "WA";
+            if (locations.ContainsKey(OSLIC))
+            {
+                ostate = locations[OSLIC][0].STATE;
+            }
+            if (locations.ContainsKey(DSLIC))
+            {
+                dstate = locations[DSLIC][0].STATE;
+            }
+            Drawer.AddPosition(startpos, endpos, volume,ostate,dstate);
+        }
         Drawer.DrawArcs(Earth);
-        Destroy(p);
     }
-    private void AppendPointVertices(GameObject p, Vector3[] verts, int[] indices, float lng, float lat, float value, List<Vector3> meshVertices,
-    List<int> meshIndices,
-    List<Color> meshColors)
+    public void ClearAll()
     {
-        Color valueColor = Colors.Evaluate(value);
-        Vector3 pos;
-        pos.x = 0.5f * Mathf.Cos((lng) * Mathf.Deg2Rad) * Mathf.Cos(lat * Mathf.Deg2Rad);
-        pos.y = 0.5f * Mathf.Sin(lat * Mathf.Deg2Rad);
-        pos.z = 0.5f * Mathf.Sin((lng) * Mathf.Deg2Rad) * Mathf.Cos(lat * Mathf.Deg2Rad);
-        Drawer.AddPosition(pos);
-        p.transform.parent = Earth.transform;
-        p.transform.position = pos;
-        p.transform.localScale = new Vector3(1, 1, Mathf.Max(0.001f, value * ValueScaleMultiplier));
-        p.transform.LookAt(pos * 2);
-
-        int prevVertCount = meshVertices.Count;
-
-        for (int k = 0; k < verts.Length; k++)
+        //clear all nodes
+        foreach(GameObject p in points)
         {
-            meshVertices.Add(p.transform.TransformPoint(verts[k]));
-            meshColors.Add(valueColor);
+            Destroy(p);
         }
-        for (int k = 0; k < indices.Length; k++)
-        {
-            meshIndices.Add(prevVertCount + indices[k]);
-        }
+        points = new List<GameObject>();
+        locations = new Dictionary<string, List<Facility>>();
+        buildings = new Dictionary<Vector3, List<Facility>>();
+        //clear all arcs
+        Drawer.DestroyArcs();
     }
-    private void CreateObject(List<Vector3> meshertices, List<int> meshindecies, List<Color> meshColors, GameObject seriesObj)
-    {
-        Debug.Log("New object!");
-        Mesh mesh = new Mesh();
-        mesh.vertices = meshertices.ToArray();
-        mesh.triangles = meshindecies.ToArray();
-        mesh.colors = meshColors.ToArray();
-        GameObject obj = new GameObject();
-        obj.transform.parent = Earth.transform;
-        //obj.transform.localPosition = new Vector3(0f, 0f, 0f);
-        obj.AddComponent<MeshFilter>().mesh = mesh;
-        obj.AddComponent<MeshRenderer>().material = PointMaterial;
-        obj.transform.parent = seriesObj.transform;
-        points.Add(obj);
-    }
+
     public void ActivateSeries(int seriesIndex)
     {
-        if (seriesIndex >= 0 && seriesIndex < seriesObjects.Length)
-        {
-            seriesObjects[currentSeries].SetActive(false);
-            currentSeries = seriesIndex;
-            seriesObjects[currentSeries].SetActive(true);
-
-        }
+        //if (seriesIndex >= 0 && seriesIndex < seriesObjects.Length)
+        //{
+        //    seriesObjects[currentSeries].SetActive(false);
+        //    currentSeries = seriesIndex;
+        //    seriesObjects[currentSeries].SetActive(true);
+        //}
+    }
+    private Facility getFacility(string SLIC,float latstart,float lngstart,string CC=null,string SORT=null,string CAP=null,string SPAN=null,string START=null,string STATE=null)
+    {
+        Vector3 pos;
+        pos.x = 0.5f * Mathf.Cos((lngstart) * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
+        pos.y = 0.5f * Mathf.Sin(latstart * Mathf.Deg2Rad);
+        pos.z = 0.5f * Mathf.Sin((lngstart) * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
+        return new Facility(pos, SLIC, CC, SORT, CAP, SPAN, START,STATE);
     }
 }
+[System.Serializable]
+public class SeriesLocData
+{
+    public string Name;
+    public string[] Data;
+}
+
 [System.Serializable]
 public class SeriesData
 {
