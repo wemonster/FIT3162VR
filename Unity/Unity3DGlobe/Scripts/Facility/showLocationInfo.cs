@@ -65,14 +65,15 @@ public class showLocationInfo : MonoBehaviour
         }
     }
 
-    public void updateLoc(string SLIC,string CC,string SORT,string CAP,string SPAN,string START)
+    public void updateLoc(Facility fac)
     {
-        this.SLIC.text = SLIC;
-        this.CC.text = CC;
-        this.SORT.text = SORT;
-        this.CAP.text = CAP;
-        this.SPAN.text = SPAN;
-        this.START.text = START;
+        SLIC.text = fac.SLIC;
+        CC.text = fac.CC;
+        SORT.text = fac.SORT;
+        CAP.text = fac.CAP;
+        SPAN.text = fac.SPAN;
+        START.text = fac.START;
+        STATE.text = fac.STATE;
 }
 
     private IEnumerator wait(int seconds)

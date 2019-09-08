@@ -9,19 +9,25 @@ public class StateClick : MonoBehaviour
     GameObject[] arcs;
     GameObject[] reference;
     Dictionary<string, List<GameObject>> Arcs = new Dictionary<string, List<GameObject>>();
+    Dictionary<string, bool> chosen = new Dictionary<string, bool>();
     bool created = false;
     void Start()
     {
-        
-
+        string[] states = {" WY"," WV"," WI"," WA"," VT"," VA"," UT"," TX"," TN"," SD"," SC"," RI"," PA"," OR",
+            " OK"," OH"," NY"," NV"," NM"," NJ"," NH"," NE"," ND"," NC"," MT"," MS"," MO"," MN"," MI"," ME"," MD",
+            " MA"," LA"," KY"," KS"," IN"," IL"," ID"," IA"," HI"," GA"," FL"," DE"," CT"," CO"," CA"," AZ",
+            " AR"," AL"," PR"};
+        foreach (string s in states)
+        {
+            chosen[s] = false;
+        }
         //Debug.Log(facilities.Length);
         //reference = (GameObject[])facilities.Clone();
     }
-
     // Update is called once per frame
     void Update()
     {
-        
+
         if (!created)
         {
             arcs = GameObject.FindGameObjectsWithTag("Arc");
@@ -29,6 +35,7 @@ public class StateClick : MonoBehaviour
             {
                 created = true;
                 reference = (GameObject[])arcs.Clone();
+                Debug.Log(reference.Length);
                 foreach (GameObject arc in arcs)
                 {
                     Arc a = arc.GetComponent<ArcInfo>().GetArc();
@@ -45,7 +52,7 @@ public class StateClick : MonoBehaviour
                 }
             }
         }
-        
+
         if (Input.GetMouseButton(0))
         {
             Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
@@ -54,24 +61,45 @@ public class StateClick : MonoBehaviour
             {
                 GameObject obj = hit.collider.gameObject;
                 //Debug.Log(obj);
+
                 if (obj.tag == "State")
                 {
-                    foreach (GameObject fac in reference)
+                    //Debug.Log(Input.mousePosition);
+                    if (chosen[obj.name] == false)
                     {
-                        if (fac.activeSelf == false)
-                        {
-                            fac.SetActive(true);
-                        }
-                        else
-                        {
-                            fac.SetActive(false);
-                        }
+                        chosen[obj.name] = true;
                     }
-                }
-            }
+                    else
+                    {
+                        chosen[obj.name] = false;
+                    }
 
+                }
+
+            }
+        }
+        foreach (GameObject arc in reference)
+        {
+            Arc a = arc.GetComponent<ArcInfo>().GetArc();
+            if (!chosen.ContainsKey(a.OriginState) || !chosen.ContainsKey(a.DestState))
+            {
+                //Debug.LogFormat("{0},{1}", a.OriginState, a.DestState);
+                continue;
+            }
+            if (chosen[a.OriginState] && chosen[a.DestState])
+            {
+                arc.SetActive(true);
+            }
+            else
+            {
+                arc.SetActive(false);
+            }
         }
         wait(3);
+    }
+    public Dictionary<string, bool> getChosen()
+    {
+        return chosen;
     }
 
     private IEnumerator wait(int seconds)

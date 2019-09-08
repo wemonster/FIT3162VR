@@ -26,16 +26,16 @@ public class ArcDrawer : MonoBehaviour
             //GameObject origin = points[i];
             //GameObject dest = points[i + 1];
             float max_vol = volumes.Max();
-            Vector3 origin = positions[arc*2];
-            Vector3 dest = positions[arc*2+1];
+            Vector3 origin = positions[arc * 2];
+            Vector3 dest = positions[arc * 2 + 1];
             string ostate = states[arc * 2];
             string dstate = states[arc * 2 + 1];
             float volume = volumes[arc];
             GameObject new_arc = new GameObject();
-            
+
             new_arc.transform.parent = Earth.transform;
             transform.localPosition = new Vector3(0f, 0f, 0f);
-            string tag_name = string.Format("{0},{1},{2}", origin,dest,volume);
+            string tag_name = string.Format("{0},{1},{2}", origin, dest, volume);
             new_arc.name = tag_name;
             new_arc.tag = "Arc";
 
@@ -49,7 +49,7 @@ public class ArcDrawer : MonoBehaviour
             lineRenderer.useWorldSpace = false;
             lineRenderer.sortingLayerID = 0;
             lineRenderer.alignment = LineAlignment.TransformZ;
-            
+
             lineRenderer.material = new Material(Shader.Find("Legacy Shaders/Particles/Additive"));
             lineRenderer.colorGradient = Colors;
             //Debug.Log(volume / max_vol * 10);
@@ -70,7 +70,7 @@ public class ArcDrawer : MonoBehaviour
 
             lineRenderer.positionCount = 3;
 
-            
+
             //Vector3 apex = new Vector3(-0.2f, 0.2f, -0.2f);
 
             Vector3 apex = 1.06f * (origin + 0.5f * (dest - origin));
@@ -103,15 +103,24 @@ public class ArcDrawer : MonoBehaviour
     }
     public void DestroyArcs()
     {
-        foreach(GameObject arc in arcs)
+        foreach (GameObject arc in arcs)
         {
-            Destroy(arc);
+            //Destroy(arc);
+            arc.SetActive(false);
         }
-        positions = new List<Vector3>();
-        volumes = new List<float>();
-        states = new List<string>();
-        arcs = new List<GameObject>();
-}
+        //positions = new List<Vector3>();
+        //volumes = new List<float>();
+        //states = new List<string>();
+        //arcs = new List<GameObject>();
+    }
+    public void InitialiseArcs()
+    {
+        foreach (GameObject arc in arcs)
+        {
+            //Destroy(arc);
+            arc.SetActive(true);
+        }
+    }
     private void Update()
     {
     }
@@ -121,20 +130,20 @@ public class ArcDrawer : MonoBehaviour
         yield return new WaitForSeconds(seconds);
     }
 
-    public void showArc(string oslic,string dslic,float volume)
+    public void showArc(string oslic, string dslic, float volume)
     {
 
         info.showInfo(oslic, dslic, volume);
     }
-    public void AddPosition(Vector3 start_pos,Vector3 end_pos,float volume,string ostate,string dstate)
+    public void AddPosition(Vector3 start_pos, Vector3 end_pos, float volume, string ostate, string dstate)
     {
         positions.Add(start_pos);
         positions.Add(end_pos);
         volumes.Add(volume);
         states.Add(ostate);
         states.Add(dstate);
-        
-        
+
+
     }
     public void Printpoints()
     {

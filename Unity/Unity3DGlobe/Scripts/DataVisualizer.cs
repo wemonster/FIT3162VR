@@ -11,14 +11,27 @@ public class DataVisualizer : MonoBehaviour
     public GameObject Earth;
     public GameObject PointPrefab;
     public float ValueScaleMultiplier = 1;
-    GameObject seriesFac,seriesArc;
+    GameObject seriesFac, seriesArc;
     List<GameObject> points = new List<GameObject>();
     int currentSeries = 0;
     public ArcDrawer Drawer;
-
+    Dictionary<string, string> states = new Dictionary<string, string>();
     Dictionary<string, List<Facility>> locations = new Dictionary<string, List<Facility>>();
     Dictionary<Vector3, List<Facility>> buildings = new Dictionary<Vector3, List<Facility>>();
 
+    public void initialiseState(SeriesLocData[] allSeries)
+    {
+        SeriesLocData seriesData = allSeries[0];
+        for (int i = 0; i < seriesData.Data.Length; i += 2)
+        {
+            string state = seriesData.Data[i + 1];
+            if (state == " DC")
+            {
+                state = " WA";
+            }
+            states[seriesData.Data[i]] = state;
+        }
+    }
     public void CreateMeshes(SeriesLocData[] allSeries)
     {
         //seriesFac = new GameObject();
@@ -38,7 +51,11 @@ public class DataVisualizer : MonoBehaviour
             string SPAN = seriesData.Data[j + 6].ToString();
             string STRT = seriesData.Data[j + 7].ToString();
             string STATE = seriesData.Data[j + 8].ToString();
-            Facility fac = getFacility(SLIC,latitude,longitude,CC,SORT,CAP,SPAN,STRT,STATE);
+            if (STATE == " DC")
+            {
+                STATE = " WA";
+            }
+            Facility fac = getFacility(SLIC, latitude, longitude, CC, SORT, CAP, SPAN, STRT, STATE);
 
             if (!locations.ContainsKey(fac.SLIC))
             {
@@ -69,32 +86,31 @@ public class DataVisualizer : MonoBehaviour
                 p.tag = "Location";
                 points.Add(p);
             }
-                else
-                {
+            else
+            {
                 buildings[fac.pos].Add(fac);
-                }
             }
+        }
     }
 
-    public void createArcs(SeriesData[] allSeries)
+    public void createArcs(SeriesLocData[] allSeries)
     {
         //seriesArc = new GameObject();
         //GameObject seriesObj = new GameObject(allSeries[0].Name);
         //seriesObj.transform.parent = Earth.transform;
         //seriesArc = seriesObj;
-        SeriesData seriesData = allSeries[0];
-        //Debug.Log(seriesData.Data.Length);
-        for (int j = 1460*7; j < seriesData.Data.Length/2; j += 7)
+        SeriesLocData seriesData = allSeries[0];
+        //Debug.Log(seriesData.Data.Length / 3500);
+        for (int j = 0; j < seriesData.Data.Length / 500; j += 7)
         {
-            //Debug.Log(seriesData.Data[j]);
-            string OSLIC = seriesData.Data[j].ToString();
-            float latstart = seriesData.Data[j + 1];
-            float lngstart = seriesData.Data[j + 2];
+            string OSLIC = seriesData.Data[j];
+            float latstart = float.Parse(seriesData.Data[j + 1]);
+            float lngstart = float.Parse(seriesData.Data[j + 2]);
             string DSLIC = seriesData.Data[j + 3].ToString();
-            float latend = seriesData.Data[j + 4];
-            float lngend = seriesData.Data[j + 5];
-            float volume = seriesData.Data[j + 6];
-
+            float latend = float.Parse(seriesData.Data[j + 4]);
+            float lngend = float.Parse(seriesData.Data[j + 5]);
+            float volume = float.Parse(seriesData.Data[j + 6]);
+            //Debug.Log(OSLIC);
             Vector3 startpos, endpos;
             startpos.x = 0.5f * Mathf.Cos(lngstart * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
             startpos.y = 0.5f * Mathf.Sin(latstart * Mathf.Deg2Rad);
@@ -103,30 +119,40 @@ public class DataVisualizer : MonoBehaviour
             endpos.y = 0.5f * Mathf.Sin(latend * Mathf.Deg2Rad);
             endpos.z = 0.5f * Mathf.Sin(lngend * Mathf.Deg2Rad) * Mathf.Cos(latend * Mathf.Deg2Rad);
             string ostate = "WA", dstate = "WA";
-            if (locations.ContainsKey(OSLIC))
+            //Debug.LogFormat("OSLIC:{0},DSLIC:{1},OSTATE:{2}", OSLIC, DSLIC, states[OSLIC]);
+            if (states.ContainsKey(OSLIC))
             {
-                ostate = locations[OSLIC][0].STATE;
+                ostate = states[OSLIC];
             }
-            if (locations.ContainsKey(DSLIC))
+            if (states.ContainsKey(DSLIC))
             {
-                dstate = locations[DSLIC][0].STATE;
+                dstate = states[DSLIC];
             }
-            Drawer.AddPosition(startpos, endpos, volume,ostate,dstate);
+            Drawer.AddPosition(startpos, endpos, volume, ostate, dstate);
         }
         Drawer.DrawArcs(Earth);
     }
     public void ClearAll()
     {
         //clear all nodes
-        foreach(GameObject p in points)
+        foreach (GameObject p in points)
         {
-            Destroy(p);
+            p.SetActive(false);
         }
-        points = new List<GameObject>();
-        locations = new Dictionary<string, List<Facility>>();
-        buildings = new Dictionary<Vector3, List<Facility>>();
+        //points = new List<GameObject>();
+        //locations = new Dictionary<string, List<Facility>>();
+        //buildings = new Dictionary<Vector3, List<Facility>>();
         //clear all arcs
         Drawer.DestroyArcs();
+    }
+
+    public void initialise()
+    {
+        foreach (GameObject p in points)
+        {
+            p.SetActive(true);
+        }
+        Drawer.InitialiseArcs();
     }
 
     public void ActivateSeries(int seriesIndex)
@@ -138,13 +164,13 @@ public class DataVisualizer : MonoBehaviour
         //    seriesObjects[currentSeries].SetActive(true);
         //}
     }
-    private Facility getFacility(string SLIC,float latstart,float lngstart,string CC=null,string SORT=null,string CAP=null,string SPAN=null,string START=null,string STATE=null)
+    private Facility getFacility(string SLIC, float latstart, float lngstart, string CC = null, string SORT = null, string CAP = null, string SPAN = null, string START = null, string STATE = null)
     {
         Vector3 pos;
         pos.x = 0.5f * Mathf.Cos((lngstart) * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
         pos.y = 0.5f * Mathf.Sin(latstart * Mathf.Deg2Rad);
         pos.z = 0.5f * Mathf.Sin((lngstart) * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
-        return new Facility(pos, SLIC, CC, SORT, CAP, SPAN, START,STATE);
+        return new Facility(pos, SLIC, CC, SORT, CAP, SPAN, START, STATE);
     }
 }
 [System.Serializable]
