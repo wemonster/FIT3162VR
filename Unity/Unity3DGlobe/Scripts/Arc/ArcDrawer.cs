@@ -3,18 +3,29 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using A;
+using System;
+
 public class ArcDrawer : MonoBehaviour
 {
     private List<Vector3> positions = new List<Vector3>();
     private List<float> volumes = new List<float>();
     private List<string> states = new List<string>();
+    private List<string> SLICs = new List<string>();
     public Gradient Colors;
-    private int SEGMENT_COUNT = 50;
+    public StateClick stateClick;
+    public int Line_Segment_Count = 50;
     showArcInfo info;
     List<GameObject> arcs = new List<GameObject>();
 
     public void DrawArcs(GameObject Earth)
     {
+        // A simple 2 color gradient with a fixed alpha of 1.0f.
+        float alpha = 1.0f;
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new GradientColorKey[] { new GradientColorKey(Color.green, 0.0f), new GradientColorKey(Color.red, 1.0f) },
+            new GradientAlphaKey[] { new GradientAlphaKey(alpha, 0.0f), new GradientAlphaKey(alpha, 1.0f) }
+        );
         //int child_count = seriesObj.transform.childCount;
         //int child_count = points.Count;
         int child_count = positions.Count;
@@ -30,20 +41,24 @@ public class ArcDrawer : MonoBehaviour
             Vector3 dest = positions[arc * 2 + 1];
             string ostate = states[arc * 2];
             string dstate = states[arc * 2 + 1];
+            string OSLIC = SLICs[arc * 2];
+            string DSLIC = SLICs[arc * 2 + 1];
             float volume = volumes[arc];
             GameObject new_arc = new GameObject();
-
+            //new_arc.SetActive(false);
+            Debug.Log("Arc OSLIC: " + OSLIC);
             new_arc.transform.parent = Earth.transform;
-            transform.localPosition = new Vector3(0f, 0f, 0f);
+            //new_arc.transform.localPosition = new Vector3(0f, 0f, 0f);
             string tag_name = string.Format("{0},{1},{2}", origin, dest, volume);
             new_arc.name = tag_name;
+            new_arc.name = OSLIC + " to " + DSLIC + " (" + ostate + " to " + dstate + ")";
             new_arc.tag = "Arc";
 
             //add script to the object
-            Arc a = new Arc(origin, dest, volume, ostate, dstate);
-            new_arc.AddComponent<ArcInfo>().SetArc(a);
+            ArcData a = new ArcData(origin, dest, volume, ostate, dstate, OSLIC, DSLIC);
+            new_arc.AddComponent<Arc>().SetArc(a);
 
-            new_arc.AddComponent<BoxCollider>();
+            //new_arc.AddComponent<BoxCollider>();
 
             LineRenderer lineRenderer = new_arc.AddComponent<LineRenderer>();
             lineRenderer.useWorldSpace = false;
@@ -51,10 +66,14 @@ public class ArcDrawer : MonoBehaviour
             lineRenderer.alignment = LineAlignment.TransformZ;
 
             lineRenderer.material = new Material(Shader.Find("Legacy Shaders/Particles/Additive"));
-            lineRenderer.colorGradient = Colors;
+            //lineRenderer.colorGradient = Colors;
             //Debug.Log(volume / max_vol * 10);
-            lineRenderer.startColor = Colors.Evaluate(volume / max_vol * 50);
-            lineRenderer.endColor = Colors.Evaluate(volume / max_vol * 50);
+
+
+            lineRenderer.colorGradient = gradient;
+
+            //lineRenderer.startColor = Colors.Evaluate(volume / max_vol * 50);
+            //lineRenderer.endColor = Colors.Evaluate(volume / max_vol * 50);
             //lineRenderer.startColor = Color.yellow;
             //lineRenderer.endColor = Color.red;
 
@@ -68,38 +87,39 @@ public class ArcDrawer : MonoBehaviour
             lineRenderer.endWidth = 0.0007f;
 
 
-            lineRenderer.positionCount = 3;
+            //lineRenderer.positionCount = 3;
 
 
-            //Vector3 apex = new Vector3(-0.2f, 0.2f, -0.2f);
+            ////Vector3 apex = new Vector3(-0.2f, 0.2f, -0.2f);
+            //float height_multiplier = 1f + (float)Math.Log(volume);
+            //Vector3 apex = height_multiplier * 0.5f * (dest + origin);
+            ////apex.y = (float)0.5;
 
-            Vector3 apex = 1.06f * (origin + 0.5f * (dest - origin));
-            apex.y = (float)0.5;
+            //lineRenderer.SetPosition(1, apex);
 
-            lineRenderer.SetPosition(1, apex);
+            ////lineRenderer.SetPosition(0, origin.transform.position);
+            ////lineRenderer.SetPosition(2, dest.transform.position);
 
-            //lineRenderer.SetPosition(0, origin.transform.position);
-            //lineRenderer.SetPosition(2, dest.transform.position);
+            //lineRenderer.SetPosition(0, origin);
+            //lineRenderer.SetPosition(2, dest);
 
-            lineRenderer.SetPosition(0, origin);
-            lineRenderer.SetPosition(2, dest);
+            //int curveCount = 1;
 
-            int curveCount = 1;
-
-            for (int j = 0; j < curveCount; j++)
-            {
-                for (int i = 1; i <= SEGMENT_COUNT; i++)
-                {
-                    float t = i / (float)SEGMENT_COUNT;
-                    int nodeIndex = j * 3;
-                    Vector3 pixel = GetPoint(origin, apex, dest, t);
-                    lineRenderer.positionCount = (j * SEGMENT_COUNT) + i;
-                    lineRenderer.SetPosition((j * SEGMENT_COUNT) + (i - 1), pixel);
-                }
-            }
+            //for (int j = 0; j < curveCount; j++)
+            //{
+            //    for (int i = 1; i <= SEGMENT_COUNT; i++)
+            //    {
+            //        float t = i / (float)SEGMENT_COUNT;
+            //        int nodeIndex = j * 3;
+            //        Vector3 pixel = GetPoint(origin, apex, dest, t);
+            //        lineRenderer.positionCount = (j * SEGMENT_COUNT) + i;
+            //        lineRenderer.SetPosition((j * SEGMENT_COUNT) + (i - 1), pixel);
+            //    }
+            //}
 
             arcs.Add(new_arc);
         }
+        stateClick.Initialise();
     }
     public void DestroyArcs()
     {
@@ -130,20 +150,44 @@ public class ArcDrawer : MonoBehaviour
         yield return new WaitForSeconds(seconds);
     }
 
+    public float GetArcVolume(string oSLIC, string dSLIC)
+    {
+        var i = 0;
+        Debug.Log(oSLIC + " " + dSLIC);
+        foreach (GameObject arc in arcs)
+        {
+            var ai = arc.GetComponent<Arc>().GetArc();
+            if (i++ > 3000 & i < 3050)
+            {
+                Debug.Log(ai.OSLIC + " " + ai.DSLIC);
+            }
+            if ((ai.OSLIC == oSLIC) & (ai.DSLIC == dSLIC))
+            {
+                Debug.Log("Found arc");
+                return ai.volume;
+            }
+            //else
+            //{
+            //    Debug.Log("Failure");
+            //}
+        }
+        return 0f;
+    }
+
     public void showArc(string oslic, string dslic, float volume)
     {
-
         info.showInfo(oslic, dslic, volume);
     }
-    public void AddPosition(Vector3 start_pos, Vector3 end_pos, float volume, string ostate, string dstate)
+
+    public void AddPosition(Vector3 start_pos, Vector3 end_pos, float volume, string ostate, string dstate, string OSLIC, string DSLIC)
     {
         positions.Add(start_pos);
         positions.Add(end_pos);
         volumes.Add(volume);
         states.Add(ostate);
         states.Add(dstate);
-
-
+        SLICs.Add(OSLIC);
+        SLICs.Add(DSLIC);
     }
     public void Printpoints()
     {

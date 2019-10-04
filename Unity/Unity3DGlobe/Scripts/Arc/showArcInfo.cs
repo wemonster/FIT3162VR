@@ -5,6 +5,10 @@ using UnityEngine.UI;
 
 public class showArcInfo : MonoBehaviour
 {
+    public SelectionWand originWand;
+    public SelectionWand destWand;
+    public ArcDrawer arcDrawer;
+
     private Text origin;
     private Text destination;
     private Text vol;
@@ -18,7 +22,7 @@ public class showArcInfo : MonoBehaviour
     public void showInfo(string oslic,string dslic,float volume)
     {
         origin = transform.Find("Origin").GetComponent<Text>();
-        Debug.Log(origin);
+        //Debug.Log(origin);
         origin.text = oslic;
         destination = transform.Find("Destination").GetComponent<Text>();
         destination.text = dslic;
@@ -29,20 +33,29 @@ public class showArcInfo : MonoBehaviour
     }
 
     // Update is called once per frame
-    private void Update()
+    public void UpdateInfo()
     {
-        if (Input.GetMouseButton(0))
+        //if (Input.GetMouseButton(0))
+        //{
+        //    Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        //    RaycastHit hit;
+        //    if (Physics.Raycast(ray, out hit))
+        //    {
+        //        GameObject obj = hit.collider.gameObject;
+        //        if (obj.tag == "Arc")
+        //        {
+        //        }
+        //    }
+        //    wait(1);
+        //}
+        if (originWand & destWand)
         {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            RaycastHit hit;
-            if (Physics.Raycast(ray, out hit))
+            var oFac = originWand.GetSelectedFac();
+            var dFac = destWand.GetSelectedFac();
+            if ((oFac != null) & (dFac != null))
             {
-                GameObject obj = hit.collider.gameObject;
-                if (obj.tag == "Arc")
-                {
-                }
+                showInfo(oFac.SLIC, dFac.SLIC, arcDrawer.GetArcVolume(oFac.SLIC, dFac.SLIC));
             }
-            wait(1);
         }
     }
 
