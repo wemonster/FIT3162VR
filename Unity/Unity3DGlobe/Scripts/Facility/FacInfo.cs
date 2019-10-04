@@ -4,6 +4,9 @@ using UnityEngine;
 using F;
 public class FacInfo : MonoBehaviour
 {
+    public static Material PointMaterial;
+    //public static Material HighlightMaterial;
+
     private Facility fac;
 
     public void SetFac(Facility fac)
