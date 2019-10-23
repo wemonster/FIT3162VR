@@ -24,7 +24,7 @@ public class DataLoader : MonoBehaviour
         TextAsset arcData = Resources.Load<TextAsset>("vol_data");
         string arcJson = arcData.text;
         arc = JsonUtility.FromJson<SeriesLocArray>(arcJson);
-        Visualizer.createArcs(arc.AllData);
+        Visualizer.CreateArcs(arc.AllData);
 
 
     }

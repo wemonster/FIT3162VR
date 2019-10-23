@@ -7,6 +7,7 @@ using F;
 public class DataVisualizer : MonoBehaviour
 {
     public Material PointMaterial;
+    //public Material HighlightMaterial;
     public Gradient Colors;
     public GameObject Earth;
     public GameObject PointPrefab;
@@ -27,13 +28,16 @@ public class DataVisualizer : MonoBehaviour
             string state = seriesData.Data[i + 1];
             if (state == " DC")
             {
-                state = " WA";
+                state = " VA";
             }
             states[seriesData.Data[i]] = state;
         }
     }
     public void CreateMeshes(SeriesLocData[] allSeries)
     {
+        FacInfo.PointMaterial = PointMaterial;
+        //FacInfo.HighlightMaterial = HighlightMaterial;
+
         //seriesFac = new GameObject();
         //GameObject seriesObj = new GameObject(allSeries[0].Name);
         //seriesObj.transform.parent = Earth.transform;
@@ -54,6 +58,10 @@ public class DataVisualizer : MonoBehaviour
             if (STATE == " DC")
             {
                 STATE = " WA";
+            }
+            if (STATE == " FL")
+            {
+                Debug.Log("Florida Facility: " + SLIC);
             }
             Facility fac = getFacility(SLIC, latitude, longitude, CC, SORT, CAP, SPAN, STRT, STATE);
 
@@ -79,11 +87,13 @@ public class DataVisualizer : MonoBehaviour
                 p.transform.parent = Earth.transform;
                 p.transform.localScale = new Vector3(1, 1, 0.001f);
                 p.transform.localPosition = fac.pos;
+                p.transform.forward = fac.pos;  // make cube point outwards
                 p.GetComponent<MeshRenderer>().material = PointMaterial;
-                p.AddComponent<BoxCollider>();
+                p.AddComponent<BoxCollider>().isTrigger = true;
                 p.AddComponent<FacInfo>().SetFac(fac);
                 //p.AddComponent<HelloWorld>();
                 p.tag = "Location";
+                p.name = "Facility SLIC: " + fac.SLIC;
                 points.Add(p);
             }
             else
@@ -93,7 +103,7 @@ public class DataVisualizer : MonoBehaviour
         }
     }
 
-    public void createArcs(SeriesLocData[] allSeries)
+    public void CreateArcs(SeriesLocData[] allSeries)
     {
         //seriesArc = new GameObject();
         //GameObject seriesObj = new GameObject(allSeries[0].Name);
@@ -101,7 +111,7 @@ public class DataVisualizer : MonoBehaviour
         //seriesArc = seriesObj;
         SeriesLocData seriesData = allSeries[0];
         //Debug.Log(seriesData.Data.Length / 3500);
-        for (int j = 0; j < seriesData.Data.Length / 500; j += 7)
+        for (int j = 0; j < seriesData.Data.Length / 100; j += 7)
         {
             string OSLIC = seriesData.Data[j];
             float latstart = float.Parse(seriesData.Data[j + 1]);
@@ -118,7 +128,7 @@ public class DataVisualizer : MonoBehaviour
             endpos.x = 0.5f * Mathf.Cos(lngend * Mathf.Deg2Rad) * Mathf.Cos(latend * Mathf.Deg2Rad);
             endpos.y = 0.5f * Mathf.Sin(latend * Mathf.Deg2Rad);
             endpos.z = 0.5f * Mathf.Sin(lngend * Mathf.Deg2Rad) * Mathf.Cos(latend * Mathf.Deg2Rad);
-            string ostate = "WA", dstate = "WA";
+            string ostate = " WA", dstate = " WA";
             //Debug.LogFormat("OSLIC:{0},DSLIC:{1},OSTATE:{2}", OSLIC, DSLIC, states[OSLIC]);
             if (states.ContainsKey(OSLIC))
             {
@@ -128,7 +138,7 @@ public class DataVisualizer : MonoBehaviour
             {
                 dstate = states[DSLIC];
             }
-            Drawer.AddPosition(startpos, endpos, volume, ostate, dstate);
+            Drawer.AddPosition(startpos, endpos, volume, ostate, dstate, OSLIC, DSLIC);
         }
         Drawer.DrawArcs(Earth);
     }
@@ -167,9 +177,11 @@ public class DataVisualizer : MonoBehaviour
     private Facility getFacility(string SLIC, float latstart, float lngstart, string CC = null, string SORT = null, string CAP = null, string SPAN = null, string START = null, string STATE = null)
     {
         Vector3 pos;
-        pos.x = 0.5f * Mathf.Cos((lngstart) * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
-        pos.y = 0.5f * Mathf.Sin(latstart * Mathf.Deg2Rad);
-        pos.z = 0.5f * Mathf.Sin((lngstart) * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
+        pos.x = Mathf.Cos((lngstart) * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
+        pos.y = Mathf.Sin(latstart * Mathf.Deg2Rad);
+        pos.z = Mathf.Sin((lngstart) * Mathf.Deg2Rad) * Mathf.Cos(latstart * Mathf.Deg2Rad);
+        pos.Normalize();
+        pos *= 0.5f;
         return new Facility(pos, SLIC, CC, SORT, CAP, SPAN, START, STATE);
     }
 }

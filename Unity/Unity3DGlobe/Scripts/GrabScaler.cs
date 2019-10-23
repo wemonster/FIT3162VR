@@ -7,6 +7,10 @@ using Valve.VR.InteractionSystem;
 [RequireComponent( typeof( Interactable ) )]
 public class GrabScaler : MonoBehaviour
 {
+    public bool CanMove = false;
+
+    public StateClick stateClick;
+
     private int HandsAttached = 0;
 
     //public Hand Left;
@@ -36,10 +40,10 @@ public class GrabScaler : MonoBehaviour
 
     private void HandHoverUpdate(Hand hand)
     {
-        Debug.Log("Hand is hovering! " + hand.handType.ToString());
+        //Debug.Log("Hand is hovering! " + hand.handType.ToString());
         GrabTypes startingGrabType = hand.GetGrabStarting();
         GrabTypes endingGrabType = hand.GetGrabEnding();
-        Debug.Log(startingGrabType + " " + endingGrabType);
+        //Debug.Log(startingGrabType + " " + endingGrabType);
         //bool isGrabEnding = hand.IsGrabEnding(this.gameObject);
 
         Hand other = hand.otherHand;
@@ -49,7 +53,7 @@ public class GrabScaler : MonoBehaviour
         // primary hover Hand grab initiate (only one Hand is registered as hovering at a time)
         if (!attachedHands.Contains(hand) && startingGrabType != GrabTypes.None)
         {
-            Debug.Log("Attached!");
+            //Debug.Log("Attached!");
             hand.HoverLock(interactable);
             AttachHand(hand);
         }
@@ -57,7 +61,7 @@ public class GrabScaler : MonoBehaviour
         // primary Hand stops grabbing
         else if (attachedHands.Contains(hand) && endingGrabType != GrabTypes.None)
         {
-            Debug.Log("Detached!");
+            //Debug.Log("Detached!");
             hand.HoverUnlock(interactable);
             DetachHand();
 
@@ -75,12 +79,12 @@ public class GrabScaler : MonoBehaviour
         {
             if (other.isOverlapping)
             {
-                Debug.Log("Overlapping with " + other.handType);
+                //Debug.Log("Overlapping with " + other.handType);
 
                 // secondary Hand grab initiate
                 if (!attachedHands.Contains(other) && other.GetGrabStarting() != GrabTypes.None)
                 {
-                    Debug.Log("Attached other!");
+                    //Debug.Log("Attached other!");
                     //hand.HoverLock(interactable);
                     AttachHand(other);
                 }
@@ -91,7 +95,7 @@ public class GrabScaler : MonoBehaviour
             // secondary Hand won't send updates because it isn't hover locked so must manually check
             if (attachedHands.Contains(other) && other.GetGrabEnding() != GrabTypes.None)
             {
-                Debug.Log("Detached other!");
+                //Debug.Log("Detached other!");
                 DetachHand();
                 attachedHands.Remove(other);
             }
@@ -105,7 +109,7 @@ public class GrabScaler : MonoBehaviour
         if (HandsAttached == 2)
         {
             //HandsAttached = 2;
-            Debug.Log("Two hands attached!");
+            //Debug.Log("Two hands attached!");
 
             // the current distance between the two hands - used as a base point for scaling
             CurrentDistance = Vector3.Distance(hand.transform.position, hand.otherHand.transform.position);
@@ -138,12 +142,13 @@ public class GrabScaler : MonoBehaviour
             transform.GetChild(0).GetComponent<SphereCollider>().enabled = true;
             transform.parent = pointer.transform.parent;
             Destroy(pointer);
+            stateClick.UpdateArcs();
         }
         HandsAttached--;
         if (HandsAttached == 0)
         {
             //HandsAttached = 0;
-            Debug.Log("No hands attached!");
+            //Debug.Log("No hands attached!");
         }
     }
 
@@ -164,10 +169,20 @@ public class GrabScaler : MonoBehaviour
             //var direction = Vector3.Normalize(transform.localPosition - head_location);
             //var hand_centre = 0.5f * (attachedHands[0].transform.position + attachedHands[1].transform.position);
             //transform.localPosition = hand_centre + OldLocation * (transform.localScale.magnitude / OldMagnitude);
-            pointer.transform.localPosition = 0.5f * (attachedHands[0].transform.position + attachedHands[1].transform.position);// * NewMagnitudeRatio;
-            pointer.transform.forward = attachedHands[0].transform.forward + attachedHands[1].transform.forward;
+
+
+
+            // important lines
+            if (CanMove)
+            {
+                pointer.transform.localPosition = 0.5f * (attachedHands[0].transform.position + attachedHands[1].transform.position);// * NewMagnitudeRatio;
+                pointer.transform.forward = attachedHands[0].transform.forward + attachedHands[1].transform.forward;
+            }
+
+
+
             //transform.localPosition = OldLocation /** pointer.transform.localScale.magnitude;/*/ / OldLocation.magnitude;
-            transform.localPosition *= (float) System.Math.Sqrt(NewMagnitudeRatio);
+            //transform.localPosition *= (float) System.Math.Sqrt(NewMagnitudeRatio);
             //var hands_dir = attachedHands[0].transform.position - attachedHands[1].transform.position;
             //transform.RotateAround(Vector3.Cross(hands_dir, OldLocation), OldAngle - Vector3.Angle(hands_dir, OldLocation));
             //OldLocation = transform.position - hand_centre;
