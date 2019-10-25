@@ -41,40 +41,26 @@ f.write(out)
 
 ## User Guide
 ### General User Interface
-//image here - GUI
-
-//map
+![alt text](images/color_state.png)
 We simulate a full USA map with each state choosable. Each state will have a specific colour and it will change colour when it is selected.\Click on an active state will cancel it.
 
-//globe
+![alt text](images/origin.png)
 Global can be scaled but not rotated because the only area we need is America. The arcs will be visualized here.
-
-//nodes
 The nodes represent the facility such as hub or center. These are important locations in the UPS network. 
 
-//arc
+![alt text](images/2000arcs.png)
 Arc represents the flow. Color marks the origin and destination: yellow is the origin and red is the destination. Height shows the volume in the path.
 
 ### User Interaction
-//selection wand
+![alt text](images/grab.png)
 User can grab a wand each hand to select the node. It is easy to choose as the logic is toggleEnter which means user can hover the points and then it will be chosen. There is a window to show the details of target facility near the wand.
 
-//laser tag
+![alt text](images/lasertag.png)
 It is used to select the state
 
 
 ## Authors
 
-* **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
-
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
-
-## Acknowledgments
-
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
+* **Jianan Yang** - *Initial work* - [JiananYang](https://github.com/wemonster)
+* **Andrew Gammon** - *Initial work* - [Andrew Gammon](https://github.com/Azdares)
+* **Siyuan Yan** - *Initial work* - [Siyuan Yan](https://github.com/redlessme)
