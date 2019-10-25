@@ -1,200 +1,230 @@
-﻿using System.Collections;
+﻿using Arcs;
 using System.Collections.Generic;
 using UnityEngine;
-using Valve.VR;
+using Valve.VR.Extras;
 using Valve.VR.InteractionSystem;
 
-[RequireComponent( typeof( Interactable ) )]
 public class GrabScaler : MonoBehaviour
 {
-    public bool CanMove = false;
+    [Tooltip("Whether the object moves relative to both hands, as well as scales")]
+    public bool CanMove = true;
+    
+    [Tooltip("If Can Move is enabled, whether the object will maintain original rotation when moved")]
+    public bool LockOrientation = true;
 
-    public StateClick stateClick;
+    // this object will be cloned so that two hands can grab it (one for original and one for clone)
+    [Tooltip("This object should be a child and contain a Collider component and an Interactable component")]
+    public Interactable PrimaryCollider;
 
+    // the number of hands currently attached
     private int HandsAttached = 0;
 
-    //public Hand Left;
-    //public Hand Right;
+    // values remembered when grabbing occurs
+    private Vector3 PrevForward;
+    private float PrevDistance = 1f;
 
-    private float CurrentDistance = 0f;
-    private float OldMagnitude = 1f;
-
-    private Vector3 OldScale;
-
-    private Vector3 OldLocation;
-    private float OldAngle;
-    private Hand.AttachmentFlags attachmentFlags = Hand.defaultAttachmentFlags;
-
-    private Interactable interactable;
-
+    // the Hands that are attached
     private List<Hand> attachedHands;
-    private GameObject pointer;
 
-    //public GameObject head;
+    // references to the two GameObjects created during GrabScaler operations
+    private GameObject rotationPointer;
+    private GameObject scalePointer;
 
     private void Awake()
     {
-        interactable = GetComponent<Interactable>();
         attachedHands = new List<Hand>();
+
+        // create a clone of the collider + interactable
+        GameObject clone = Instantiate(PrimaryCollider.gameObject);
+        clone.name = "SecondaryCollider";
+
+        clone.transform.SetParent(PrimaryCollider.transform.parent, false);
+
+        // if the object is being rendered, disable it on the clone so it doesn't double render
+        var renderer = clone.GetComponent<Renderer>();
+        if (renderer) renderer.enabled = false;
+
+        PrimaryCollider.gameObject.AddComponent<GrabScalerAux>().SetParentScaler(this);
+        clone.gameObject.AddComponent<GrabScalerAux>().SetParentScaler(this);
     }
 
-    private void HandHoverUpdate(Hand hand)
+    // attach a hand - a reference object may be created
+    public void AttachHand(Hand hand)
     {
-        //Debug.Log("Hand is hovering! " + hand.handType.ToString());
-        GrabTypes startingGrabType = hand.GetGrabStarting();
-        GrabTypes endingGrabType = hand.GetGrabEnding();
-        //Debug.Log(startingGrabType + " " + endingGrabType);
-        //bool isGrabEnding = hand.IsGrabEnding(this.gameObject);
-
-        Hand other = hand.otherHand;
-
-        //if(attachedHands.)
-
-        // primary hover Hand grab initiate (only one Hand is registered as hovering at a time)
-        if (!attachedHands.Contains(hand) && startingGrabType != GrabTypes.None)
+        // turn off laser if applicable
+        var lp = hand.GetComponent<SteamVR_LaserPointer>();
+        if (lp)
         {
-            //Debug.Log("Attached!");
-            hand.HoverLock(interactable);
-            AttachHand(hand);
+            lp.holder.SetActive(false);
+            lp.enabled = false;
         }
 
-        // primary Hand stops grabbing
-        else if (attachedHands.Contains(hand) && endingGrabType != GrabTypes.None)
-        {
-            //Debug.Log("Detached!");
-            hand.HoverUnlock(interactable);
-            DetachHand();
-
-            // secondary Hand can't send hover updates so both must be detached
-            HandsAttached = 0;
-            attachedHands.Clear();
-
-            //attachedHands.Remove(hand);
-            //other.HoverLock(interactable);
-
-        }
-
-        // secondary Hand (if the other Hand is trying to hover the same Interactable as the first Hand)
-        if (other)
-        {
-            if (other.isOverlapping)
-            {
-                //Debug.Log("Overlapping with " + other.handType);
-
-                // secondary Hand grab initiate
-                if (!attachedHands.Contains(other) && other.GetGrabStarting() != GrabTypes.None)
-                {
-                    //Debug.Log("Attached other!");
-                    //hand.HoverLock(interactable);
-                    AttachHand(other);
-                }
-
-                //HandHoverUpdate(hand.otherHand);
-            }
-
-            // secondary Hand won't send updates because it isn't hover locked so must manually check
-            if (attachedHands.Contains(other) && other.GetGrabEnding() != GrabTypes.None)
-            {
-                //Debug.Log("Detached other!");
-                DetachHand();
-                attachedHands.Remove(other);
-            }
-        }
-    }
-
-    public void AttachHand(Hand hand)    
-    {
         HandsAttached++;
         attachedHands.Add(hand);
+        // one hand - on-the-spot rotation functionality
+        if (HandsAttached == 1)
+        {
+            // create a new reference objet 
+            rotationPointer = new GameObject("Rotation Reference (Temp)");
+            var new_forward = attachedHands[0].transform.position - transform.position;
+
+            // this forces rotation to only be around the y-axis (which is more natural to use)
+            new_forward.y = 0;
+
+            rotationPointer.transform.forward = new_forward;
+            rotationPointer.transform.parent = transform;
+            rotationPointer.transform.localPosition = new Vector3(0, 0, 0);
+            rotationPointer.transform.parent = transform.parent;
+            transform.parent = rotationPointer.transform;
+        }
+        
+        // two hands - scaling and perhaps spatial movement functionality
         if (HandsAttached == 2)
         {
-            //HandsAttached = 2;
-            //Debug.Log("Two hands attached!");
+            if (rotationPointer)
+            {
+                transform.parent = rotationPointer.transform.parent;
+                Destroy(rotationPointer);
+            }
+
+            // previous object forward direction (used for setting rotation if CanRotateOnMove is disabled)
+            PrevForward = transform.forward;
 
             // the current distance between the two hands - used as a base point for scaling
-            CurrentDistance = Vector3.Distance(hand.transform.position, hand.otherHand.transform.position);
+            PrevDistance = Vector3.Distance(hand.transform.position, hand.otherHand.transform.position);
+            // safety check (in case PrevDistance is somehow 0f, i.e. the hands are perfectly overlapping)
+            // to prevent div by 0 error later
+            if (PrevDistance == 0f)
+            {
+                PrevDistance = 0.01f;
+            }
 
-            // the old size of the object
-            OldMagnitude = transform.localScale.magnitude;
-            OldScale = transform.localScale;
+            // create a new GameObject to serve as the new parent for the scaling object
+            scalePointer = new GameObject("Grabber Reference (Temp)");
 
-            // old position of object relative to the centre between the two hands
-            OldLocation = transform.position - 0.5f * (attachedHands[0].transform.position + attachedHands[1].transform.position);
+            // the object is placed between the two hands and faces the average direction of them
+            scalePointer.transform.localPosition = 0.5f * (attachedHands[0].transform.position + attachedHands[1].transform.position);
+            scalePointer.transform.forward = attachedHands[0].transform.forward + attachedHands[1].transform.forward;
 
-            OldAngle = Vector3.Angle(OldLocation, attachedHands[0].transform.position - attachedHands[1].transform.position);
-
-            // disable the sphere collider to reduce collision lag
-            transform.GetChild(0).GetComponent<SphereCollider>().enabled = false;
-
-            pointer = new GameObject("Grabber Reference");
-            pointer.transform.localPosition = 0.5f * (attachedHands[0].transform.position + attachedHands[1].transform.position);
-            pointer.transform.forward = attachedHands[0].transform.forward + attachedHands[1].transform.forward;
-            pointer.transform.parent = transform.parent;
-            transform.parent = pointer.transform;
-            OldLocation = transform.localPosition;
+            scalePointer.transform.parent = transform.parent;
+            transform.parent = scalePointer.transform;
+            Debug.Log(transform.localPosition);
         }
     }
 
-    public void DetachHand()
+    // detach a hand, which may require cleanup
+    public void DetachHand(Hand hand)
     {
+        // remove the rotation reference object if it exists
+        if (HandsAttached == 1 && rotationPointer)
+        {
+            transform.parent = rotationPointer.transform.parent;
+            Destroy(rotationPointer);
+        }
+
         if (HandsAttached == 2)
         {
-            transform.GetChild(0).GetComponent<SphereCollider>().enabled = true;
-            transform.parent = pointer.transform.parent;
-            Destroy(pointer);
-            stateClick.UpdateArcs();
+            // having fulfilled its purpose, the temp pointer object is destroyed and the object's original parent is restored
+            transform.parent = scalePointer.transform.parent;
+            Destroy(scalePointer);
+
+            // redraw Arcs (they may have to be rescaled)
+            var arcDrawer = GetComponent<ArcDrawer>();
+            if (arcDrawer)
+            {
+                arcDrawer.UpdateArcs();
+            }
         }
         HandsAttached--;
-        if (HandsAttached == 0)
+        attachedHands.Remove(hand);
+
+        // re-enable laser if applicable
+        var lp = hand.GetComponent<SteamVR_LaserPointer>();
+        if (lp)
         {
-            //HandsAttached = 0;
-            //Debug.Log("No hands attached!");
+            lp.enabled = true;
+            lp.holder.SetActive(true);
         }
     }
 
     // Update is called once per frame
     void Update()
     {
-        if (HandsAttached == 2)
+        // single hand - rotation functionality
+        if (HandsAttached == 1 && rotationPointer)
+        {
+            var new_forward = attachedHands[0].transform.position - transform.position;
+            new_forward.y = 0;
+            rotationPointer.transform.forward = new_forward;   
+        }
+
+        // two hands - scaling and movement functionality
+        else if (HandsAttached == 2)
         {
             // find the new scale multiplier, which is based on the ratio of distance between the two hands now compared to when scaling started
-            float NewMagnitudeRatio = Vector3.Distance(attachedHands[0].transform.position, attachedHands[1].transform.position) / CurrentDistance;
-            //transform.localScale = (transform.localScale * NewScale * OldMagnitude) / transform.localScale.magnitude;
-            //transform.localScale = OldScale * NewMagnitudeRatio;
-            pointer.transform.localScale = new Vector3(NewMagnitudeRatio, NewMagnitudeRatio, NewMagnitudeRatio);
-            //transform.rotation = new Quaternion()
-            //var head_location = SteamVR_Render.instance.transform.position;
-            //var head_location = new Vector3(0, 0, 0);
-            //Debug.Log(head_location);
-            //var direction = Vector3.Normalize(transform.localPosition - head_location);
-            //var hand_centre = 0.5f * (attachedHands[0].transform.position + attachedHands[1].transform.position);
-            //transform.localPosition = hand_centre + OldLocation * (transform.localScale.magnitude / OldMagnitude);
+            float NewMagnitudeRatio = Vector3.Distance(attachedHands[0].transform.position, attachedHands[1].transform.position) / PrevDistance;
 
+            // adjusting the reference object will also change its children (in this case, the object we want scaled)
+            // since the child is scaled relative to the pointer, it will scale away from the hands (i.e. its position will be adjusted)
+            // this prevents the object from blowing up into the viewer's face
+            scalePointer.transform.localScale = new Vector3(NewMagnitudeRatio, NewMagnitudeRatio, NewMagnitudeRatio);
 
-
-            // important lines
+            // additional two-handed movement and rotation functionality
             if (CanMove)
             {
-                pointer.transform.localPosition = 0.5f * (attachedHands[0].transform.position + attachedHands[1].transform.position);// * NewMagnitudeRatio;
-                pointer.transform.forward = attachedHands[0].transform.forward + attachedHands[1].transform.forward;
+                scalePointer.transform.localPosition = 0.5f * (attachedHands[0].transform.position + attachedHands[1].transform.position);
+
+                // set rotation
+                scalePointer.transform.forward = attachedHands[0].transform.forward + attachedHands[1].transform.forward;
+
+                // reset the specific rotation of object if that is desired (this is so the globe's position is still rotated around the hands)
+                if (LockOrientation)
+                {
+                    transform.forward = PrevForward;
+                }
             }
-
-
-
-            //transform.localPosition = OldLocation /** pointer.transform.localScale.magnitude;/*/ / OldLocation.magnitude;
-            //transform.localPosition *= (float) System.Math.Sqrt(NewMagnitudeRatio);
-            //var hands_dir = attachedHands[0].transform.position - attachedHands[1].transform.position;
-            //transform.RotateAround(Vector3.Cross(hands_dir, OldLocation), OldAngle - Vector3.Angle(hands_dir, OldLocation));
-            //OldLocation = transform.position - hand_centre;
-            //transform.Rotate()
-
-            //var new_direction = Vector3.Cross(attachedHands[0].transform.position - attachedHands[1].transform.position, Vector3.up);
-            //new_direction.Normalize();
-            //Debug.Log(new_direction);
-            //transform.localPosition = hand_centre + OldLocation.magnitude * NewMagnitudeRatio * new_direction;
-            //Quaternion quaternion = new Quaternion();
-            //quaternion.SetFromToRotation(OldLocation, new_direction);
-            //transform.rotation = quaternion * transform.rotation;
         }
+    }
+}
+
+// this is a component added to the children of the scaling object to allow two hands to grab the same object
+public class GrabScalerAux : MonoBehaviour
+{
+    private GrabScaler scalerParent;
+    private Interactable interactable;
+    private bool attached = false;
+
+    private void Awake()
+    {
+        interactable = GetComponent<Interactable>();
+    }
+
+    public void SetParentScaler(GrabScaler grabScaler)
+    {
+        scalerParent = grabScaler;
+    }
+
+    private void HandHoverUpdate(Hand hand)
+    {
+        GrabTypes startingGrabType = hand.GetGrabStarting();
+        GrabTypes endingGrabType = hand.GetGrabEnding();
+
+        // attach action taken
+        if (!attached && startingGrabType != GrabTypes.None)
+        {
+            hand.HoverLock(interactable);
+            scalerParent.AttachHand(hand);
+            attached = true;
+        }
+
+        // detach action taken
+        else if (attached && endingGrabType != GrabTypes.None)
+        {
+            scalerParent.DetachHand(hand);
+            hand.HoverUnlock(interactable);
+            attached = false;
+        }
+
+
     }
 }

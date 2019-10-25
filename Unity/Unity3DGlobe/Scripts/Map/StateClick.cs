@@ -1,202 +1,76 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using Arcs;
 using UnityEngine;
-using F;
-using A;
 using Valve.VR.Extras;
 using Valve.VR.InteractionSystem;
 
-public class StateClick : MonoBehaviour
+namespace Map
 {
-    // Start is called before the first frame update
-    GameObject[] arcs;
-    GameObject[] reference;
-    Dictionary<string, List<GameObject>> Arcs = new Dictionary<string, List<GameObject>>();
-    Dictionary<string, bool> chosen = new Dictionary<string, bool>();
-    bool created = false;
-    void Start()
+    public class StateClick : MonoBehaviour
     {
-        string[] states = {" WY"," WV"," WI"," WA"," VT"," VA"," UT"," TX"," TN"," SD"," SC"," RI"," PA"," OR",
-            " OK"," OH"," NY"," NV"," NM"," NJ"," NH"," NE"," ND"," NC"," MT"," MS"," MO"," MN"," MI"," ME"," MD",
-            " MA"," LA"," KY"," KS"," IN"," IL"," ID"," IA"," HI"," GA"," FL"," DE"," CT"," CO"," CA"," AZ",
-            " AR"," AL"," AK", " PR"};
-        foreach (string s in states)
+        [Tooltip("Where to send state toggle messages")]
+        public ArcDrawer arcDrawer;
+
+        // Start is called before the first frame update
+        void Start()
         {
-            chosen[s] = false;
-        }
-
-        foreach (Hand hand in Player.instance.hands)
-        {
-            var lp = hand.GetComponent<SteamVR_LaserPointer>();
-            if (lp) lp.PointerClick += OnPointerClick;
-        }
-        //Debug.Log(facilities.Length);
-        //reference = (GameObject[])facilities.Clone();
-    }
-    // Update is called once per frame
-    //void Update()
-    //{
-
-    //    //if (!created)
-    //    //{
-    //    //    arcs = GameObject.FindGameObjectsWithTag("Arc");
-    //    //    if (arcs.Length != 0)
-    //    //    {
-    //    //        created = true;
-    //    //        reference = (GameObject[])arcs.Clone();
-    //    //        Debug.Log(reference.Length);
-    //    //        foreach (GameObject arc in arcs)
-    //    //        {
-    //    //            ArcData a = arc.GetComponent<Arc>().GetArc();
-    //    //            if (!Arcs.ContainsKey(a.OriginState))
-    //    //            {
-    //    //                List<GameObject> f = new List<GameObject>();
-    //    //                f.Add(arc);
-    //    //                Arcs.Add(a.OriginState, f);
-    //    //            }
-    //    //            else
-    //    //            {
-    //    //                Arcs[a.OriginState].Add(arc);
-    //    //            }
-    //    //        }
-    //    //    }
-    //    //    UpdateArcs();
-    //    //}
-
-    //    if (Input.GetMouseButton(0))
-    //    {
-    //        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-    //        RaycastHit hit;
-    //        if (Physics.Raycast(ray, out hit))
-    //        {
-    //            GameObject obj = hit.collider.gameObject;
-    //            //Debug.Log(obj);
-
-    //            if (obj.tag == "State")
-    //            {
-    //                //Debug.Log(Input.mousePosition);
-    //                if (chosen[obj.name] == false)
-    //                {
-    //                    chosen[obj.name] = true;
-    //                }
-    //                else
-    //                {
-    //                    chosen[obj.name] = false;
-    //                }
-
-    //            }
-
-    //        }
-    //    }
-    //    //foreach (GameObject arc in reference)
-    //    //{
-    //    //    ArcData a = arc.GetComponent<Arc>().GetArc();
-    //    //    //Debug.Log(a.DestState + " " + a.OriginState);
-    //    //    if (!chosen.ContainsKey(a.OriginState) || !chosen.ContainsKey(a.DestState))
-    //    //    {
-    
-    //    //        continue;
-    //    //    }
-    //    //    if (chosen[a.OriginState] && chosen[a.DestState])
-    //    //    {
-    //    //        //Debug.Log("activated arc!");
-    //    //        arc.SetActive(true);
-    //    //    }
-    //    //    else
-    //    //    {
-    //    //        arc.SetActive(false);
-    //    //    }
-    //    //}
-    //    //Debug.Log(chosen.ContainsValue(true));
-    //    wait(3);
-    //}
-
-    public void Initialise()
-    {
-        arcs = GameObject.FindGameObjectsWithTag("Arc");
-        if (arcs.Length != 0)
-        {
-            created = true;
-            reference = (GameObject[])arcs.Clone();
-            Debug.Log(reference.Length);
-            foreach (GameObject arc in arcs)
+            foreach (Hand hand in Player.instance.hands)
             {
-                ArcData a = arc.GetComponent<Arc>().GetArc();
-                if (!Arcs.ContainsKey(a.OriginState))
+                var lp = hand.GetComponent<SteamVR_LaserPointer>();
+                if (lp)
                 {
-                    List<GameObject> f = new List<GameObject>();
-                    f.Add(arc);
-                    Arcs.Add(a.OriginState, f);
-                }
-                else
-                {
-                    Arcs[a.OriginState].Add(arc);
+                    lp.PointerIn += OnPointerIn;
+                    lp.PointerOut += OnPointerOut;
+                    lp.PointerClick += OnPointerClick;
                 }
             }
         }
-        UpdateArcs();
-    }
 
-    public void UpdateArcs()
-    {
-        var activated_arcs = new List<Arc>();
-        float max_volume = 0f;
-        foreach (GameObject arc in reference)
+        // subscribed to LaserPointer PointerIn event, used to start highlight
+        private void OnPointerIn(object sender, PointerEventArgs e)
         {
-            Arc ai = arc.GetComponent<Arc>();
-            ArcData a = ai.GetArc();
-            //Debug.Log(a.DestState + " " + a.OriginState);
-            if (!chosen.ContainsKey(a.OriginState) || !chosen.ContainsKey(a.DestState))
+            StateColor stateColor = e.target.GetComponent<StateColor>();
+            if (stateColor)
             {
-                Debug.Log(a.OriginState + " " + a.DestState);
-                continue;
-            }
-            if (chosen[a.OriginState] && chosen[a.DestState])
-            {
-                //Debug.Log("activated arc!");
-                arc.SetActive(true);
-                activated_arcs.Add(ai);
-                ai.Init();
-                max_volume = max_volume < a.volume ? a.volume : max_volume;
-            }
-            else
-            {
-                arc.SetActive(false);
+                stateColor.HoverStart();
             }
         }
-        Arc.MaxVolume = max_volume;
-        foreach (Arc arc in activated_arcs)
+
+        // subscribed to LaserPointer PointerOut event, used to end highlight
+        private void OnPointerOut(object sender, PointerEventArgs e)
         {
-            arc.Dirty();
+            StateColor stateColor = e.target.GetComponent<StateColor>();
+            if (stateColor)
+            {
+                stateColor.HoverStop();
+            }
         }
-    }
 
-    private void OnPointerClick(object sender, PointerEventArgs e)
-    {
-        GameObject obj = e.target.transform.gameObject;
-        Debug.Log(obj.name);
-        if (obj.tag == "State")
+        // subscribed to LaserPointer PointClick event, for 'ray' collision with an object
+        private void OnPointerClick(object sender, PointerEventArgs e)
         {
-            if (chosen[obj.name] == false)
-            {
-                chosen[obj.name] = true;
-            }
-            else
-            {
-                chosen[obj.name] = false;
-            }
+            //clear path
+            //var path = GameObject.FindGameObjectsWithTag("arcPath");
+            //foreach (GameObject p in path)
+            //{
+            //    Destroy(p);
+            //}
+           
+            // get the collided object
+            GameObject obj = e.target.gameObject;
+            Debug.Log(obj.name);
 
-            UpdateArcs();
+            // check if the collided object is a state, and flip its status if it is
+            StateColor stateColor = obj.GetComponent<StateColor>();
+            if (stateColor)
+            {
+                stateColor.StateToggle();
+                if (arcDrawer)
+                { 
+                    arcDrawer.ClearPath();
+                    arcDrawer.ToggleState(obj.name);
+                }
+                //UpdateArcs();
+            }
         }
-    }
-
-        public Dictionary<string, bool> getChosen()
-    {
-        return chosen;
-    }
-
-    private IEnumerator wait(int seconds)
-    {
-        yield return new WaitForSeconds(seconds);
     }
 }
